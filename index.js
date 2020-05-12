@@ -11,9 +11,10 @@ const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 const noop = Promise.resolve();
 
-const parseFileOption = option => {
+const parseFileOption = (option) => {
   const file = typeof option === 'string' ? option : option.file;
-  const type = (typeof option !== 'string' && option.type) || 'application/json';
+  const type =
+    (typeof option !== 'string' && option.type) || 'application/json';
   const path = (typeof option !== 'string' && option.path) || 'version';
   return { file, type, path };
 };
@@ -41,7 +42,7 @@ class Bumper extends Plugin {
     const { isDryRun } = this.global;
     if (!out) return;
     return Promise.all(
-      castArray(out).map(async out => {
+      castArray(out).map(async (out) => {
         const { file, type, path } = parseFileOption(out);
 
         this.log.exec(`Writing version to ${file}`, isDryRun);
@@ -52,18 +53,30 @@ class Bumper extends Plugin {
           const data = await readFile(file, 'utf8').catch(() => '{}');
           const indent = detectIndent(data).indent || '  ';
           const parsed = JSON.parse(data);
-          set(parsed, path, version);
+          if (typeof path === 'string') {
+            set(parsed, path, version);
+          } else {
+            path.map((path) => {
+              set(parsed, path, version);
+            });
+          }
           return writeFile(file, JSON.stringify(parsed, null, indent) + '\n');
         } else if (type === 'text/yaml' || type === 'application/x-yaml') {
           const data = await readFile(file, 'utf8').catch(() => '{}');
           const indent = detectIndent(data).indent || '  ';
           const parsed = yaml.safeLoad(data);
           set(parsed, path, version);
-          return writeFile(file, yaml.safeDump(parsed, { indent: indent.length }) + '\n');
+          return writeFile(
+            file,
+            yaml.safeDump(parsed, { indent: indent.length }) + '\n'
+          );
         } else if (type.startsWith('text/')) {
           const { latestVersion } = this.config.contextOptions;
           const read = await readFile(file, 'utf8').catch(() => latestVersion);
-          const versionMatch = new RegExp((latestVersion || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+          const versionMatch = new RegExp(
+            (latestVersion || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            'g'
+          );
           const write = read ? read.replace(versionMatch, version) : version;
           return writeFile(file, write);
         }
